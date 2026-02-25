@@ -368,6 +368,60 @@ td.actions-cell {
   color: var(--text-muted);
 }
 
+.summary-card {
+  margin-top: 16px;
+}
+
+.summary-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.summary-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  justify-content: space-between;
+  margin-top: 6px;
+}
+
+.summary-block {
+  min-width: 140px;
+}
+
+.summary-label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.summary-value {
+  margin-top: 2px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.summary-value span {
+  color: var(--accent);
+}
+
+.summary-divider {
+  margin: 10px 0;
+  border: none;
+  border-top: 1px dashed rgba(30, 64, 175, 0.7);
+}
+
+.summary-week-result table {
+  margin-top: 6px;
+}
+
+.summary-week-result td,
+.summary-week-result th {
+  font-size: 0.76rem;
+}
+
 .app-footer {
   position: fixed;
   inset-inline: 0;

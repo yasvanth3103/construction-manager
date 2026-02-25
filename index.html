@@ -16,7 +16,8 @@
     </header>
 
     <nav class="tabs">
-      <button class="tab-button active" data-tab="sites">Sites</button>
+      <button class="tab-button active" data-tab="dashboard">Dashboard</button>
+      <button class="tab-button" data-tab="sites">Sites</button>
       <button class="tab-button" data-tab="labours">Labours</button>
       <button class="tab-button" data-tab="attendance">Attendance</button>
       <button class="tab-button" data-tab="materials">Materials</button>
@@ -24,8 +25,88 @@
     </nav>
 
     <main class="tab-container">
+      <!-- Dashboard -->
+      <section id="tab-dashboard" class="tab-content active">
+        <h2>Dashboard</h2>
+
+        <div class="card summary-card">
+          <div class="summary-header">
+            <h3>Today overview</h3>
+            <span class="hint">Based on attendance saved for today's date.</span>
+          </div>
+          <div class="summary-row">
+            <div class="summary-block">
+              <div class="summary-label">Total workers worked today (all sites)</div>
+              <div class="summary-value">
+                <span id="dash-today-all-workers">0</span> workers
+              </div>
+            </div>
+          </div>
+          <div class="summary-week-result">
+            <table>
+              <thead>
+                <tr>
+                  <th>Site</th>
+                  <th>Workers worked today</th>
+                </tr>
+              </thead>
+              <tbody id="dash-today-site-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card summary-card">
+          <div class="summary-header">
+            <h3>Monthly &amp; site summary</h3>
+            <span class="hint">Pick a month to see labour and material totals.</span>
+          </div>
+          <div class="summary-row summary-week-controls">
+            <div class="field">
+              <label for="dash-month">Month</label>
+              <input id="dash-month" type="month" />
+            </div>
+            <div class="field">
+              <label for="dash-month-site">Site (optional)</label>
+              <select id="dash-month-site"></select>
+            </div>
+            <div class="form-actions">
+              <button type="button" id="dash-month-calc" class="btn ghost">Calculate month</button>
+            </div>
+          </div>
+          <div class="summary-week-result">
+            <div class="summary-label">
+              Workers worked (unique) this month:
+              <span id="dash-month-workers">0</span>
+            </div>
+            <div class="summary-label">
+              Labour cost this month (₹):
+              <span id="dash-month-labour">0</span>
+            </div>
+            <div class="summary-label">
+              OT amount this month (₹):
+              <span id="dash-month-ot">0</span>
+            </div>
+            <div class="summary-label">
+              Materials cost this month (₹):
+              <span id="dash-month-materials">0</span>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Site</th>
+                  <th>Workers (unique)</th>
+                  <th>Labour cost (₹)</th>
+                  <th>Materials cost (₹)</th>
+                </tr>
+              </thead>
+              <tbody id="dash-month-site-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
       <!-- Sites -->
-      <section id="tab-sites" class="tab-content active">
+      <section id="tab-sites" class="tab-content">
         <h2>Sites</h2>
         <form id="site-form" class="card form-grid">
           <input type="hidden" id="site-id" />
@@ -151,6 +232,95 @@
           </div>
         </div>
 
+        <div class="card summary-card">
+          <div class="summary-header">
+            <h3>Overview</h3>
+            <span class="hint">Counts consider workers marked Present or Half-day.</span>
+          </div>
+          <div class="summary-row">
+            <div class="summary-block">
+              <div class="summary-label">Today (all sites)</div>
+              <div class="summary-value">
+                <span id="today-workers-all">0</span> workers worked
+              </div>
+            </div>
+            <div class="summary-block">
+              <div class="summary-label">Today (selected site)</div>
+              <div class="summary-value">
+                <span id="today-workers-site">0</span> workers worked
+              </div>
+            </div>
+          </div>
+          <hr class="summary-divider" />
+          <div class="summary-row summary-week-controls">
+            <div class="field">
+              <label for="week-start">Week starting</label>
+              <input id="week-start" type="date" />
+            </div>
+            <div class="field">
+              <label for="week-site">Site (optional)</label>
+              <select id="week-site"></select>
+            </div>
+            <div class="form-actions">
+              <button type="button" id="week-calc" class="btn ghost">Calculate week</button>
+            </div>
+          </div>
+          <div class="summary-week-result">
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Day</th>
+                  <th>Workers worked</th>
+                </tr>
+              </thead>
+              <tbody id="week-summary-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card summary-card">
+          <div class="summary-header">
+            <h3>Labour weekly details</h3>
+            <span class="hint">See one worker's week (Sun–Sat) and total days worked.</span>
+          </div>
+          <div class="summary-row summary-week-controls">
+            <div class="field">
+              <label for="labour-week-select">Labour</label>
+              <select id="labour-week-select"></select>
+            </div>
+            <div class="field">
+              <label for="labour-week-start">Week starting</label>
+              <input id="labour-week-start" type="date" />
+            </div>
+            <div class="form-actions">
+              <button type="button" id="labour-week-calc" class="btn ghost">Show labour week</button>
+            </div>
+          </div>
+          <div class="summary-week-result">
+            <div class="summary-label">
+              Total days worked this week:
+              <span id="labour-week-total">0</span>
+            </div>
+            <div class="summary-label">
+              Total OT this week:
+              <span id="labour-week-ot-total">0</span>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Day</th>
+                  <th>Site</th>
+                  <th>Status</th>
+                  <th>OT</th>
+                </tr>
+              </thead>
+              <tbody id="labour-week-body"></tbody>
+            </table>
+          </div>
+        </div>
+
         <div class="card table-wrapper">
           <div class="table-header">
             <h3>Labour attendance for selected site &amp; date</h3>
@@ -161,6 +331,7 @@
                 <th>Labour</th>
                 <th>Role</th>
                 <th>Status</th>
+                <th>OT type</th>
                 <th>OT amount (₹)</th>
                 <th>Base pay (₹)</th>
                 <th>Total pay (₹)</th>
@@ -269,6 +440,25 @@
           <p class="hint">
             The Excel file will contain four sheets: <strong>Sites</strong>, <strong>Labours</strong>, <strong>Attendance</strong>, and
             <strong>Materials</strong>.
+          </p>
+        </div>
+
+        <div class="card form-grid">
+          <div class="field full-width">
+            <h3>Backup &amp; restore</h3>
+          </div>
+          <div class="field full-width">
+            <button id="backup-download" class="btn ghost">Download backup (JSON)</button>
+          </div>
+          <div class="field full-width">
+            <label for="backup-file">Restore from backup file</label>
+            <input id="backup-file" type="file" accept=".json,application/json" />
+          </div>
+          <div class="form-actions">
+            <button id="backup-restore" class="btn danger">Restore data</button>
+          </div>
+          <p class="hint">
+            Restoring will <strong>replace all current data</strong> (sites, labours, attendance, materials) with the contents of the backup file.
           </p>
         </div>
       </section>

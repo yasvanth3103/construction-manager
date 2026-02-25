@@ -81,17 +81,24 @@ function fillSiteSelects() {
     $("attendance-site"),
     $("material-site"),
     $("export-site"),
+    $("week-site"),
+    $("dash-month-site"),
   ];
   siteSelects.forEach((select) => {
     if (!select) return;
-    const currentId = select.id === "export-site" ? select.value : select.value;
+    const currentId = select.value;
     select.innerHTML = "";
 
-    if (select.id === "export-site") {
+    if (select.id === "export-site" || select.id === "week-site") {
       const optAll = document.createElement("option");
       optAll.value = "";
       optAll.textContent = "All sites";
       select.appendChild(optAll);
+    } else if (select.id === "labour-site") {
+      const optAllSites = document.createElement("option");
+      optAllSites.value = "";
+      optAllSites.textContent = "All sites";
+      select.appendChild(optAllSites);
     } else {
       const placeholder = document.createElement("option");
       placeholder.value = "";
@@ -194,7 +201,7 @@ function renderLabours() {
       <td>${labour.name || ""}</td>
       <td>${labour.role || ""}</td>
       <td>${labour.dailyWage != null ? Number(labour.dailyWage).toFixed(0) : ""}</td>
-      <td>${site ? site.name : ""}</td>
+      <td>${labour.siteId ? (site ? site.name : "") : "All sites"}</td>
       <td>${labour.active ? "Active" : "Inactive"}</td>
       <td class="actions-cell">
         <button class="btn ghost btn-sm" data-action="edit" data-id="${labour.id}">Edit</button>
@@ -275,6 +282,7 @@ function setupLabours() {
   });
 
   renderLabours();
+  fillLabourWeekSelect();
 }
 
 // Attendance
@@ -285,18 +293,324 @@ function computeBasePay(status, dailyWage) {
   return 0;
 }
 
+function countWorkersWorkedOnDate(date, siteId) {
+  const records = state.attendance.filter((a) => {
+    if (a.date !== date) return false;
+    if (siteId && a.siteId !== siteId) return false;
+    return a.status === "present" || a.status === "halfday";
+  });
+  const ids = new Set(records.map((r) => r.labourId));
+  return ids.size;
+}
+
+function updateTodayOverview() {
+  const today = new Date().toISOString().slice(0, 10);
+  const allSpan = $("today-workers-all");
+  const siteSpan = $("today-workers-site");
+  if (allSpan) {
+    allSpan.textContent = countWorkersWorkedOnDate(today, "");
+  }
+  if (siteSpan) {
+    const siteId = $("attendance-site") ? $("attendance-site").value : "";
+    if (siteId) {
+      siteSpan.textContent = countWorkersWorkedOnDate(today, siteId);
+    } else {
+      siteSpan.textContent = 0;
+    }
+  }
+}
+
+function setupWeekSummary() {
+  const weekStartInput = $("week-start");
+  const weekCalcBtn = $("week-calc");
+  const tbody = $("week-summary-body");
+
+  if (weekStartInput && !weekStartInput.value) {
+    weekStartInput.value = new Date().toISOString().slice(0, 10);
+  }
+
+  const calc = () => {
+    if (!weekStartInput) return;
+    const start = weekStartInput.value;
+    if (!start) {
+      alert("Select week starting date.");
+      return;
+    }
+    const siteId = $("week-site") ? $("week-site").value || "" : "";
+    tbody.innerHTML = "";
+
+    const startDate = new Date(start + "T00:00:00");
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(startDate);
+      d.setDate(startDate.getDate() + i);
+      const iso = d.toISOString().slice(0, 10);
+      const count = countWorkersWorkedOnDate(iso, siteId);
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${iso}</td>
+        <td>${dayNames[d.getDay()]}</td>
+        <td>${count}</td>
+      `;
+      tbody.appendChild(tr);
+    }
+  };
+
+  if (weekCalcBtn) {
+    weekCalcBtn.addEventListener("click", calc);
+  }
+}
+
+function fillLabourWeekSelect() {
+  const select = $("labour-week-select");
+  if (!select) return;
+  const current = select.value;
+  select.innerHTML = "";
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "Select labour";
+  select.appendChild(placeholder);
+
+  state.labours.forEach((l) => {
+    const opt = document.createElement("option");
+    opt.value = l.id;
+    opt.textContent = l.name || "(no name)";
+    select.appendChild(opt);
+  });
+
+  if (current) {
+    select.value = current;
+  }
+}
+
+function setupLabourWeekSummary() {
+  const labourSelect = $("labour-week-select");
+  const weekInput = $("labour-week-start");
+  const btn = $("labour-week-calc");
+  const tbody = $("labour-week-body");
+  const totalSpan = $("labour-week-total");
+  const otTotalSpan = $("labour-week-ot-total");
+
+  if (weekInput && !weekInput.value) {
+    weekInput.value = new Date().toISOString().slice(0, 10);
+  }
+
+  const calc = () => {
+    if (!labourSelect || !weekInput) return;
+    const labourId = labourSelect.value;
+    const start = weekInput.value;
+    if (!labourId || !start) {
+      alert("Select labour and week starting date.");
+      return;
+    }
+
+    const startDate = new Date(start + "T00:00:00");
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    tbody.innerHTML = "";
+    let daysWorked = 0;
+    let totalOt = 0;
+
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(startDate);
+      d.setDate(startDate.getDate() + i);
+      const iso = d.toISOString().slice(0, 10);
+
+      const rec = state.attendance.find(
+        (a) => a.labourId === labourId && a.date === iso,
+      );
+
+      let statusLabel = "";
+      let siteName = "";
+      let otCount = 0;
+      if (rec) {
+        const site = state.sites.find((s) => s.id === rec.siteId);
+        siteName = site ? site.name : "";
+        if (rec.status === "present") statusLabel = "Present";
+        else if (rec.status === "halfday") statusLabel = "Half-day";
+        else if (rec.status === "absent") statusLabel = "Absent";
+
+        if (rec.status === "present" || rec.status === "halfday") {
+          daysWorked += 1;
+        }
+
+        if (rec.otType === "morning" || rec.otType === "night") {
+          otCount = 1;
+        } else if (rec.otType === "both") {
+          otCount = 2;
+        }
+        totalOt += otCount;
+      }
+
+      const otText = otCount ? `${otCount} OT` : "";
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${iso}</td>
+        <td>${dayNames[d.getDay()]}</td>
+        <td>${siteName}</td>
+        <td>${statusLabel}</td>
+        <td>${otText}</td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    if (totalSpan) {
+      totalSpan.textContent = daysWorked.toString();
+    }
+    if (otTotalSpan) {
+      otTotalSpan.textContent = totalOt.toString();
+    }
+  };
+
+  if (btn) {
+    btn.addEventListener("click", calc);
+  }
+}
+
+// Dashboard
+function updateDashboardToday() {
+  const today = new Date().toISOString().slice(0, 10);
+  const totalSpan = $("dash-today-all-workers");
+  const tbody = $("dash-today-site-body");
+  if (!tbody) return;
+
+  const allCount = countWorkersWorkedOnDate(today, "");
+  if (totalSpan) {
+    totalSpan.textContent = allCount.toString();
+  }
+
+  tbody.innerHTML = "";
+  state.sites.forEach((site) => {
+    const count = countWorkersWorkedOnDate(today, site.id);
+    if (count === 0) return;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${site.name || ""}</td>
+      <td>${count}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function setupDashboard() {
+  const monthInput = $("dash-month");
+  const monthBtn = $("dash-month-calc");
+  const workersSpan = $("dash-month-workers");
+  const labourSpan = $("dash-month-labour");
+  const otSpan = $("dash-month-ot");
+  const matSpan = $("dash-month-materials");
+  const tbody = $("dash-month-site-body");
+
+  if (monthInput && !monthInput.value) {
+    const today = new Date();
+    const monthStr = today.toISOString().slice(0, 7);
+    monthInput.value = monthStr;
+  }
+
+  const calcMonth = () => {
+    if (!monthInput || !tbody) return;
+    const month = monthInput.value;
+    if (!month) {
+      alert("Please select a month.");
+      return;
+    }
+    const siteFilter = $("dash-month-site") ? $("dash-month-site").value || "" : "";
+
+    // Attendance-based stats
+    const att = state.attendance.filter((a) => {
+      if (!a.date || !a.date.startsWith(month)) return false;
+      if (siteFilter && a.siteId !== siteFilter) return false;
+      return true;
+    });
+
+    const workerIds = new Set();
+    let totalLabourCost = 0;
+    let totalOtAmount = 0;
+
+    att.forEach((a) => {
+      workerIds.add(a.labourId);
+      const labour = state.labours.find((l) => l.id === a.labourId);
+      const base = labour ? computeBasePay(a.status, labour.dailyWage) : 0;
+      const total = base + Number(a.otAmount || 0);
+      totalLabourCost += total;
+      totalOtAmount += Number(a.otAmount || 0);
+    });
+
+    // Materials-based stats
+    const mats = state.materials.filter((m) => {
+      if (!m.date || !m.date.startsWith(month)) return false;
+      if (siteFilter && m.siteId !== siteFilter) return false;
+      return true;
+    });
+
+    let totalMaterials = 0;
+    mats.forEach((m) => {
+      totalMaterials += Number(m.qty || 0) * Number(m.rate || 0);
+    });
+
+    if (workersSpan) workersSpan.textContent = workerIds.size.toString();
+    if (labourSpan) labourSpan.textContent = totalLabourCost.toFixed(0);
+    if (otSpan) otSpan.textContent = totalOtAmount.toFixed(0);
+    if (matSpan) matSpan.textContent = totalMaterials.toFixed(0);
+
+    // Per-site breakdown
+    tbody.innerHTML = "";
+    state.sites.forEach((site) => {
+      if (siteFilter && site.id !== siteFilter) return;
+
+      const siteAtt = att.filter((a) => a.siteId === site.id);
+      const siteWorkers = new Set(siteAtt.map((a) => a.labourId));
+      let siteLabourCost = 0;
+      siteAtt.forEach((a) => {
+        const labour = state.labours.find((l) => l.id === a.labourId);
+        const base = labour ? computeBasePay(a.status, labour.dailyWage) : 0;
+        const total = base + Number(a.otAmount || 0);
+        siteLabourCost += total;
+      });
+
+      const siteMats = mats.filter((m) => m.siteId === site.id);
+      let siteMatTotal = 0;
+      siteMats.forEach((m) => {
+        siteMatTotal += Number(m.qty || 0) * Number(m.rate || 0);
+      });
+
+      if (siteWorkers.size === 0 && siteMats.length === 0) return;
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${site.name || ""}</td>
+        <td>${siteWorkers.size}</td>
+        <td>${siteLabourCost.toFixed(0)}</td>
+        <td>${siteMatTotal.toFixed(0)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  };
+
+  if (monthBtn) {
+    monthBtn.addEventListener("click", calcMonth);
+  }
+
+  // Initial calculation
+  calcMonth();
+}
+
 function renderAttendanceRows(siteId, date) {
   const tbody = $("attendance-table-body");
   tbody.innerHTML = "";
   if (!siteId || !date) return;
 
-  const laboursForSite = state.labours.filter((l) => l.siteId === siteId && l.active);
+  const laboursForSite = state.labours.filter(
+    (l) => (l.siteId === siteId || !l.siteId) && l.active,
+  );
   laboursForSite.forEach((labour) => {
     const existing = state.attendance.find(
       (a) => a.siteId === siteId && a.date === date && a.labourId === labour.id,
     );
     const status = existing ? existing.status : "";
     const otAmount = existing ? existing.otAmount || 0 : 0;
+    const otType = existing ? existing.otType || "" : "";
     const remarks = existing ? existing.remarks || "" : "";
     const basePay = computeBasePay(status, labour.dailyWage);
     const totalPay = basePay + Number(otAmount || 0);
@@ -312,6 +626,14 @@ function renderAttendanceRows(siteId, date) {
           <option value="present" ${status === "present" ? "selected" : ""}>Present</option>
           <option value="halfday" ${status === "halfday" ? "selected" : ""}>Half-day</option>
           <option value="absent" ${status === "absent" ? "selected" : ""}>Absent</option>
+        </select>
+      </td>
+      <td>
+        <select class="attendance-ot-type">
+          <option value=""></option>
+          <option value="morning" ${otType === "morning" ? "selected" : ""}>Morning OT</option>
+          <option value="night" ${otType === "night" ? "selected" : ""}>Night OT</option>
+          <option value="both" ${otType === "both" ? "selected" : ""}>Morning + Night</option>
         </select>
       </td>
       <td>
@@ -348,6 +670,7 @@ function setupAttendance() {
       return;
     }
     renderAttendanceRows(siteId, date);
+    updateTodayOverview();
   });
 
   tbody.addEventListener("input", (e) => {
@@ -388,18 +711,20 @@ function setupAttendance() {
       const labourId = row.dataset.labourId;
       if (!labourId) return;
       const statusSelect = row.querySelector(".attendance-status");
+      const otTypeSelect = row.querySelector(".attendance-ot-type");
       const otInput = row.querySelector(".attendance-ot");
       const remarksInput = row.querySelector(".attendance-remarks");
 
       const status = statusSelect ? statusSelect.value : "";
       const otAmount = otInput ? Number(otInput.value || 0) : 0;
+      const otType = otTypeSelect ? otTypeSelect.value : "";
       const remarks = remarksInput ? remarksInput.value.trim() : "";
 
       const existingIndex = state.attendance.findIndex(
         (a) => a.siteId === siteId && a.date === date && a.labourId === labourId,
       );
 
-      if (!status && !otAmount && !remarks) {
+      if (!status && !otAmount && !remarks && !otType) {
         if (existingIndex >= 0) {
           state.attendance.splice(existingIndex, 1);
         }
@@ -414,6 +739,7 @@ function setupAttendance() {
           labourId,
           status,
           otAmount,
+          otType,
           remarks,
         };
         if (existingIndex >= 0) {
@@ -426,6 +752,7 @@ function setupAttendance() {
 
     saveState();
     alert("Attendance saved.");
+    updateTodayOverview();
   });
 }
 
@@ -637,6 +964,14 @@ function setupExport() {
             : a.status === "absent"
             ? "Absent"
             : "",
+        "OT Type":
+          a.otType === "morning"
+            ? "Morning OT"
+            : a.otType === "night"
+            ? "Night OT"
+            : a.otType === "both"
+            ? "Morning + Night"
+            : "",
         "OT Amount (INR)": a.otAmount || 0,
         "Base Pay (INR)": basePay,
         "Total Pay (INR)": totalPay,
@@ -679,6 +1014,66 @@ function setupExport() {
   });
 }
 
+// Backup & restore
+function setupBackupRestore() {
+  const downloadBtn = $("backup-download");
+  const restoreBtn = $("backup-restore");
+  const fileInput = $("backup-file");
+
+  if (downloadBtn) {
+    downloadBtn.addEventListener("click", () => {
+      const data = localStorage.getItem(STORAGE_KEY) || JSON.stringify(state);
+      const blob = new Blob([data], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "construction-manager-backup.json";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  if (restoreBtn) {
+    restoreBtn.addEventListener("click", () => {
+      if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+        alert("Please choose a backup JSON file first.");
+        return;
+      }
+      if (!confirm("Are you sure you want to replace all current data with this backup?")) {
+        return;
+      }
+      const file = fileInput.files[0];
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const parsed = JSON.parse(event.target.result);
+          state = {
+            sites: parsed.sites || [],
+            labours: parsed.labours || [],
+            attendance: parsed.attendance || [],
+            materials: parsed.materials || [],
+          };
+          saveState();
+          // Refresh UI
+          renderSites();
+          fillSiteSelects();
+          renderLabours();
+          renderMaterialsForCurrentFilter();
+          fillLabourWeekSelect();
+          updateTodayOverview();
+          alert("Backup restored successfully.");
+        } catch (err) {
+          console.error("Failed to restore backup", err);
+          alert("Failed to restore backup. Please make sure this is a valid backup file.");
+        }
+      };
+      reader.readAsText(file);
+    });
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   initTabs();
   setupSites();
@@ -686,5 +1081,18 @@ document.addEventListener("DOMContentLoaded", () => {
   setupAttendance();
   setupMaterials();
   setupExport();
+  setupBackupRestore();
+  setupWeekSummary();
+  setupLabourWeekSummary();
+  setupDashboard();
+  updateTodayOverview();
+  updateDashboardToday();
+
+  const attendanceSiteSelect = $("attendance-site");
+  if (attendanceSiteSelect) {
+    attendanceSiteSelect.addEventListener("change", () => {
+      updateTodayOverview();
+    });
+  }
 });
 
