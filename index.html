@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Construction Manager</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <h1>Construction Manager</h1>
+        <p>Daily tracking for sites, labours, attendance &amp; materials</p>
+      </div>
+      <div class="currency-badge">INR (₹)</div>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab-button active" data-tab="sites">Sites</button>
+      <button class="tab-button" data-tab="labours">Labours</button>
+      <button class="tab-button" data-tab="attendance">Attendance</button>
+      <button class="tab-button" data-tab="materials">Materials</button>
+      <button class="tab-button" data-tab="export">Export</button>
+    </nav>
+
+    <main class="tab-container">
+      <!-- Sites -->
+      <section id="tab-sites" class="tab-content active">
+        <h2>Sites</h2>
+        <form id="site-form" class="card form-grid">
+          <input type="hidden" id="site-id" />
+          <div class="field">
+            <label for="site-name">Site name</label>
+            <input id="site-name" type="text" required placeholder="E.g. Apartment A Block" />
+          </div>
+          <div class="field">
+            <label for="site-location">Location</label>
+            <input id="site-location" type="text" placeholder="Area / City" />
+          </div>
+          <div class="field">
+            <label for="site-start">Start date</label>
+            <input id="site-start" type="date" />
+          </div>
+          <div class="field">
+            <label for="site-status">Status</label>
+            <select id="site-status">
+              <option value="Active">Active</option>
+              <option value="Paused">Paused</option>
+              <option value="Completed">Completed</option>
+            </select>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn primary">Save site</button>
+            <button type="button" id="site-reset" class="btn ghost">Clear</button>
+          </div>
+        </form>
+
+        <div class="card table-wrapper">
+          <div class="table-header">
+            <h3>All sites</h3>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Location</th>
+                <th>Start</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="sites-table-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Labours -->
+      <section id="tab-labours" class="tab-content">
+        <h2>Labours</h2>
+        <form id="labour-form" class="card form-grid">
+          <input type="hidden" id="labour-id" />
+          <div class="field">
+            <label for="labour-name">Name</label>
+            <input id="labour-name" type="text" required placeholder="Labour name" />
+          </div>
+          <div class="field">
+            <label for="labour-phone">Phone</label>
+            <input id="labour-phone" type="tel" placeholder="Optional phone" />
+          </div>
+          <div class="field">
+            <label for="labour-role">Role</label>
+            <input id="labour-role" type="text" placeholder="Helper / Mason / etc." />
+          </div>
+          <div class="field">
+            <label for="labour-daily-wage">Daily wage (₹)</label>
+            <input id="labour-daily-wage" type="number" min="0" step="1" required />
+          </div>
+          <div class="field">
+            <label for="labour-site">Assigned site</label>
+            <select id="labour-site">
+              <!-- filled from JS -->
+            </select>
+          </div>
+          <div class="field checkbox-field">
+            <label>
+              <input id="labour-active" type="checkbox" checked />
+              Active
+            </label>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn primary">Save labour</button>
+            <button type="button" id="labour-reset" class="btn ghost">Clear</button>
+          </div>
+        </form>
+
+        <div class="card table-wrapper">
+          <div class="table-header">
+            <h3>All labours</h3>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Role</th>
+                <th>Daily wage (₹)</th>
+                <th>Site</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="labours-table-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Attendance -->
+      <section id="tab-attendance" class="tab-content">
+        <h2>Attendance</h2>
+
+        <div class="card form-grid attendance-filters">
+          <div class="field">
+            <label for="attendance-date">Date</label>
+            <input id="attendance-date" type="date" />
+          </div>
+          <div class="field">
+            <label for="attendance-site">Site</label>
+            <select id="attendance-site"></select>
+          </div>
+          <div class="form-actions">
+            <button type="button" id="attendance-load" class="btn primary">Load labours</button>
+          </div>
+        </div>
+
+        <div class="card table-wrapper">
+          <div class="table-header">
+            <h3>Labour attendance for selected site &amp; date</h3>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Labour</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>OT amount (₹)</th>
+                <th>Base pay (₹)</th>
+                <th>Total pay (₹)</th>
+                <th>Remarks</th>
+              </tr>
+            </thead>
+            <tbody id="attendance-table-body"></tbody>
+          </table>
+        </div>
+
+        <div class="card attendance-actions">
+          <button id="attendance-save" class="btn primary">Save attendance</button>
+          <span class="hint">Saving stores data only on this device (browser) and will also be available in Excel export.</span>
+        </div>
+      </section>
+
+      <!-- Materials -->
+      <section id="tab-materials" class="tab-content">
+        <h2>Materials</h2>
+
+        <form id="material-form" class="card form-grid">
+          <input type="hidden" id="material-id" />
+          <div class="field">
+            <label for="material-date">Date</label>
+            <input id="material-date" type="date" />
+          </div>
+          <div class="field">
+            <label for="material-site">Site</label>
+            <select id="material-site"></select>
+          </div>
+          <div class="field">
+            <label for="material-name">Material name</label>
+            <input id="material-name" type="text" required placeholder="Cement, Sand, Steel, Bricks..." />
+          </div>
+          <div class="field">
+            <label for="material-unit">Unit</label>
+            <input id="material-unit" type="text" placeholder="Bag, kg, ton, piece..." />
+          </div>
+          <div class="field">
+            <label for="material-qty">Quantity</label>
+            <input id="material-qty" type="number" min="0" step="0.01" required />
+          </div>
+          <div class="field">
+            <label for="material-rate">Rate per unit (₹)</label>
+            <input id="material-rate" type="number" min="0" step="0.01" required />
+          </div>
+          <div class="field">
+            <label for="material-supplier">Supplier</label>
+            <input id="material-supplier" type="text" placeholder="Supplier name (optional)" />
+          </div>
+          <div class="field full-width">
+            <label for="material-notes">Notes</label>
+            <textarea id="material-notes" rows="2" placeholder="Truck number, payment details, etc."></textarea>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn primary">Add / update material</button>
+            <button type="button" id="material-reset" class="btn ghost">Clear</button>
+          </div>
+        </form>
+
+        <div class="card table-wrapper">
+          <div class="table-header">
+            <h3>Materials for selected site &amp; date</h3>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Site</th>
+                <th>Material</th>
+                <th>Unit</th>
+                <th>Qty</th>
+                <th>Rate (₹)</th>
+                <th>Amount (₹)</th>
+                <th>Supplier</th>
+                <th>Notes</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="materials-table-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Export -->
+      <section id="tab-export" class="tab-content">
+        <h2>Export to Excel</h2>
+        <div class="card form-grid">
+          <div class="field">
+            <label for="export-site">Site (optional)</label>
+            <select id="export-site">
+              <!-- JS: All sites + "All sites" -->
+            </select>
+          </div>
+          <div class="field">
+            <label for="export-from">From date (optional)</label>
+            <input id="export-from" type="date" />
+          </div>
+          <div class="field">
+            <label for="export-to">To date (optional)</label>
+            <input id="export-to" type="date" />
+          </div>
+          <div class="form-actions">
+            <button id="export-button" class="btn primary">Download Excel (.xlsx)</button>
+          </div>
+          <p class="hint">
+            The Excel file will contain four sheets: <strong>Sites</strong>, <strong>Labours</strong>, <strong>Attendance</strong>, and
+            <strong>Materials</strong>.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <span>Data is stored only on this device (in this browser). Remember to export Excel regularly as a backup.</span>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="./app.js"></script>
+  </body>
+  </html>
+
