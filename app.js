@@ -1,5 +1,10 @@
-// Simple localStorage-backed store
+// Simple store (server-backed with local backup)
 const STORAGE_KEY = "construction_manager_data_v1";
+const AUTH_TOKEN_KEY = "construction_manager_auth_token";
+
+let authToken = null;
+let currentUser = null;
+let appInitialized = false;
 
 function loadState() {
   try {
@@ -20,8 +25,56 @@ function loadState() {
   }
 }
 
+function setAuth(token, user) {
+  authToken = token || null;
+  currentUser = user || null;
+  const pill = document.getElementById("auth-user-pill");
+  if (pill) {
+    if (authToken && currentUser && currentUser.email) {
+      pill.textContent = currentUser.email;
+    } else if (authToken) {
+      pill.textContent = "Signed in";
+    } else {
+      pill.textContent = "";
+    }
+  }
+  try {
+    if (authToken) {
+      localStorage.setItem(AUTH_TOKEN_KEY, authToken);
+    } else {
+      localStorage.removeItem(AUTH_TOKEN_KEY);
+    }
+  } catch (e) {
+    console.error("Failed to persist auth token", e);
+  }
+}
+
+function apiFetch(path, options = {}) {
+  const opts = { ...options };
+  opts.headers = opts.headers || {};
+  if (!(opts.body instanceof FormData)) {
+    opts.headers["Content-Type"] = "application/json";
+  }
+  if (authToken) {
+    opts.headers["Authorization"] = `Bearer ${authToken}`;
+  }
+  return fetch(path, opts);
+}
+
 function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  // local backup so the app still has some resilience
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) {
+    console.error("Failed to persist local backup", e);
+  }
+  if (!authToken) return;
+  apiFetch("/api/state", {
+    method: "PUT",
+    body: JSON.stringify(state),
+  }).catch((err) => {
+    console.error("Failed to sync state to server", err);
+  });
 }
 
 function generateId(prefix) {
@@ -53,6 +106,170 @@ function initTabs() {
       if (section) section.classList.add("active");
     });
   });
+}
+
+function showAppShell() {
+  const authShell = document.getElementById("auth-shell");
+  const appShell = document.getElementById("app-shell");
+  if (authShell) authShell.classList.add("app-shell-hidden");
+  if (appShell) appShell.classList.remove("app-shell-hidden");
+}
+
+function showAuthShell() {
+  const authShell = document.getElementById("auth-shell");
+  const appShell = document.getElementById("app-shell");
+  if (appShell) appShell.classList.add("app-shell-hidden");
+  if (authShell) authShell.classList.remove("app-shell-hidden");
+}
+
+function applyStateAndRerender(newState) {
+  state = {
+    sites: newState.sites || [],
+    labours: newState.labours || [],
+    attendance: newState.attendance || [],
+    materials: newState.materials || [],
+  };
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) {
+    console.error("Failed to persist state backup", e);
+  }
+
+  renderSites();
+  fillSiteSelects();
+  renderLabours();
+  fillLabourWeekSelect();
+  renderMaterialsForCurrentFilter();
+  updateTodayOverview();
+  updateDashboardToday();
+}
+
+function loadStateFromServer() {
+  if (!authToken) return Promise.resolve();
+  return apiFetch("/api/state")
+    .then((res) => {
+      if (!res.ok) {
+        throw new Error("Failed to load state");
+      }
+      return res.json();
+    })
+    .then((data) => {
+      applyStateAndRerender(data);
+    })
+    .catch((err) => {
+      console.error("Failed to load state from server", err);
+    });
+}
+
+function initAppAfterAuth() {
+  if (appInitialized) return;
+  appInitialized = true;
+  setupSites();
+  setupLabours();
+  setupAttendance();
+  setupMaterials();
+  setupExport();
+  setupBackupRestore();
+  setupWeekSummary();
+  setupLabourWeekSummary();
+  setupDashboard();
+  updateTodayOverview();
+  updateDashboardToday();
+
+  const attendanceSiteSelect = $("attendance-site");
+  if (attendanceSiteSelect) {
+    attendanceSiteSelect.addEventListener("change", () => {
+      updateTodayOverview();
+    });
+  }
+}
+
+function setupAuth() {
+  const form = document.getElementById("auth-form");
+  const loginBtn = document.getElementById("auth-login");
+  const registerBtn = document.getElementById("auth-register");
+  const errorEl = document.getElementById("auth-error");
+  const logoutBtn = document.getElementById("logout-button");
+
+  const setError = (msg) => {
+    if (errorEl) {
+      errorEl.textContent = msg || "";
+    }
+  };
+
+  const handleAuth = (mode) => {
+    if (!form) return;
+    const emailInput = document.getElementById("auth-email");
+    const passwordInput = document.getElementById("auth-password");
+    if (!(emailInput && passwordInput)) return;
+    const email = emailInput.value.trim();
+    const password = passwordInput.value;
+    if (!email || !password) {
+      setError("Enter email and password.");
+      return;
+    }
+    setError("");
+
+    fetch(`/api/auth/${mode}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    })
+      .then((res) => {
+        if (!res.ok) {
+          return res
+            .json()
+            .catch(() => ({}))
+            .then((body) => {
+              throw new Error(body.error || "Failed to authenticate");
+            });
+        }
+        return res.json();
+      })
+      .then((data) => {
+        setAuth(data.token, data.user);
+        showAppShell();
+        initTabs();
+        initAppAfterAuth();
+        return loadStateFromServer();
+      })
+      .catch((err) => {
+        console.error("Auth error", err);
+        setError(err.message || "Authentication failed");
+      });
+  };
+
+  if (loginBtn) {
+    loginBtn.addEventListener("click", () => handleAuth("login"));
+  }
+  if (registerBtn) {
+    registerBtn.addEventListener("click", () => handleAuth("register"));
+  }
+
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", () => {
+      setAuth(null, null);
+      appInitialized = false;
+      showAuthShell();
+      if (form) {
+        form.reset();
+      }
+    });
+  }
+
+  // Try existing token
+  try {
+    const stored = localStorage.getItem(AUTH_TOKEN_KEY);
+    if (stored) {
+      setAuth(stored, null);
+      showAppShell();
+      initTabs();
+      initAppAfterAuth();
+      loadStateFromServer();
+    }
+  } catch (e) {
+    console.error("Failed to read auth token", e);
+  }
 }
 
 // Sites
@@ -1075,24 +1292,6 @@ function setupBackupRestore() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  initTabs();
-  setupSites();
-  setupLabours();
-  setupAttendance();
-  setupMaterials();
-  setupExport();
-  setupBackupRestore();
-  setupWeekSummary();
-  setupLabourWeekSummary();
-  setupDashboard();
-  updateTodayOverview();
-  updateDashboardToday();
-
-  const attendanceSiteSelect = $("attendance-site");
-  if (attendanceSiteSelect) {
-    attendanceSiteSelect.addEventListener("change", () => {
-      updateTodayOverview();
-    });
-  }
+  setupAuth();
 });
 

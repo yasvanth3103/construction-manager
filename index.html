@@ -7,24 +7,54 @@
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
-    <header class="app-header">
-      <div>
-        <h1>Construction Manager</h1>
-        <p>Daily tracking for sites, labours, attendance &amp; materials</p>
+    <!-- Auth shell -->
+    <div id="auth-shell" class="auth-shell">
+      <div class="auth-card">
+        <h1 class="auth-title">Construction Manager</h1>
+        <p class="auth-subtitle">Sign in to access your sites and records from any device.</p>
+
+        <form id="auth-form" class="auth-form">
+          <div class="field full-width">
+            <label for="auth-email">Email</label>
+            <input id="auth-email" type="email" required placeholder="you@example.com" />
+          </div>
+          <div class="field full-width">
+            <label for="auth-password">Password</label>
+            <input id="auth-password" type="password" required minlength="6" />
+          </div>
+          <div class="auth-actions">
+            <button type="button" id="auth-login" class="btn primary">Login</button>
+            <button type="button" id="auth-register" class="btn ghost">Create account</button>
+          </div>
+          <p id="auth-error" class="auth-error"></p>
+        </form>
       </div>
-      <div class="currency-badge">INR (₹)</div>
-    </header>
+    </div>
 
-    <nav class="tabs">
-      <button class="tab-button active" data-tab="dashboard">Dashboard</button>
-      <button class="tab-button" data-tab="sites">Sites</button>
-      <button class="tab-button" data-tab="labours">Labours</button>
-      <button class="tab-button" data-tab="attendance">Attendance</button>
-      <button class="tab-button" data-tab="materials">Materials</button>
-      <button class="tab-button" data-tab="export">Export</button>
-    </nav>
+    <!-- Main app shell (hidden until logged in) -->
+    <div id="app-shell" class="app-shell app-shell-hidden">
+      <header class="app-header">
+        <div>
+          <h1>Construction Manager</h1>
+          <p>Daily tracking for sites, labours, attendance &amp; materials</p>
+        </div>
+        <div class="header-right">
+          <div class="currency-badge">INR (₹)</div>
+          <div id="auth-user-pill" class="auth-user-pill"></div>
+          <button type="button" id="logout-button" class="btn ghost btn-xs">Logout</button>
+        </div>
+      </header>
 
-    <main class="tab-container">
+      <nav class="tabs">
+        <button class="tab-button active" data-tab="dashboard">Dashboard</button>
+        <button class="tab-button" data-tab="sites">Sites</button>
+        <button class="tab-button" data-tab="labours">Labours</button>
+        <button class="tab-button" data-tab="attendance">Attendance</button>
+        <button class="tab-button" data-tab="materials">Materials</button>
+        <button class="tab-button" data-tab="export">Export</button>
+      </nav>
+
+      <main class="tab-container">
       <!-- Dashboard -->
       <section id="tab-dashboard" class="tab-content active">
         <h2>Dashboard</h2>
@@ -416,8 +446,8 @@
         </div>
       </section>
 
-      <!-- Export -->
-      <section id="tab-export" class="tab-content">
+        <!-- Export -->
+        <section id="tab-export" class="tab-content">
         <h2>Export to Excel</h2>
         <div class="card form-grid">
           <div class="field">
@@ -461,12 +491,13 @@
             Restoring will <strong>replace all current data</strong> (sites, labours, attendance, materials) with the contents of the backup file.
           </p>
         </div>
-      </section>
-    </main>
+        </section>
+      </main>
 
-    <footer class="app-footer">
-      <span>Data is stored only on this device (in this browser). Remember to export Excel regularly as a backup.</span>
-    </footer>
+      <footer class="app-footer">
+        <span>Data is stored securely for your account. Use Excel and JSON exports regularly as an extra backup.</span>
+      </footer>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script src="./app.js"></script>
