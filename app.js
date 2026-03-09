@@ -1,6 +1,7 @@
 // Simple store (server-backed with local backup)
 const STORAGE_KEY = "construction_manager_data_v1";
 const AUTH_TOKEN_KEY = "construction_manager_auth_token";
+const API_BASE = "https://construction-manager-e0om.onrender.com";
 
 let authToken = null;
 let currentUser = null;
