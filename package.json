@@ -1,11 +1,10 @@
 {
   "name": "construction-manager",
   "version": "1.0.0",
-  "description": "Construction site manager with Node/Express backend and web frontend",
-  "main": "server/index.js",
+  "main": "index.js",
   "scripts": {
-    "start": "node server/index.js",
-    "dev": "NODE_ENV=development node server/index.js"
+    "start": "node index.js",
+    "dev": "NODE_ENV=development node index.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -15,4 +14,3 @@
     "sqlite3": "^5.1.7"
   }
 }
-
