@@ -59,7 +59,7 @@ function apiFetch(path, options = {}) {
   if (authToken) {
     opts.headers["Authorization"] = `Bearer ${authToken}`;
   }
-  return fetch(path, opts);
+  return fetch(API_BASE + path, opts);
 }
 
 function saveState() {
