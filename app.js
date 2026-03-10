@@ -211,7 +211,7 @@ function setupAuth() {
     }
     setError("");
 
-    fetch(`/api/auth/${mode}`, {
+    fetch(${API_BASE}/api/auth/${mode}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
